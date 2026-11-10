@@ -1,0 +1,31 @@
+import { Router } from "express";
+import { authRoutes } from "../modules/auth/auth.routes";
+import { profileRoutes } from "../modules/profile/profile.routes";
+import { qualificationRoutes } from "../modules/qualifications/qualification.routes";
+import { flightRoutes } from "../modules/flights/flight.routes";
+import { flightSwapRoutes } from "../modules/flight-swaps/flight-swap.routes";
+import { leaveSwapRoutes } from "../modules/leave-swaps/leave-swap.routes";
+import { accommodationSwapRoutes } from "../modules/accommodation-swaps/accommodation-swap.routes";
+import { matchRoutes } from "../modules/matches/match.routes";
+import { requestRoutes } from "../modules/requests/request.routes";
+import { rosterRoutes } from "../modules/roster/roster.routes";
+import { referenceRoutes } from "../modules/references/reference.routes";
+import { dashboardRoutes } from "../modules/dashboard/dashboard.routes";
+import { swapSummaryRoutes } from "../modules/swaps/swap-summary.routes";
+
+export const apiRoutes = Router();
+
+apiRoutes.get("/health", (_req, res) => res.json({ success: true, message: "CrewSwap API is running" }));
+apiRoutes.use("/auth", authRoutes);
+apiRoutes.use("/profile", profileRoutes);
+apiRoutes.use("/qualifications", qualificationRoutes);
+apiRoutes.use("/flights", flightRoutes);
+apiRoutes.use("/flight-swaps", flightSwapRoutes);
+apiRoutes.use("/leave-swaps", leaveSwapRoutes);
+apiRoutes.use("/accommodation-swaps", accommodationSwapRoutes);
+apiRoutes.use("/matches", matchRoutes);
+apiRoutes.use("/requests", requestRoutes);
+apiRoutes.use("/roster", rosterRoutes);
+apiRoutes.use("/reference", referenceRoutes);
+apiRoutes.use("/dashboard", dashboardRoutes);
+apiRoutes.use("/swaps", swapSummaryRoutes);

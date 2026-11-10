@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CREW
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+  BLOCKED
+}
+
+enum Rank {
+  PURSER
+  IN_FLIGHT_SUPERVISOR
+  FA
+  FJ
+  FC
+  CS
+  CM
+  FO
+  CP
+}
+
+enum Fleet {
+  A320
+  A330
+  A350
+  B737
+  B777
+  B787
+}
+
+enum SwapStatus {
+  DRAFT
+  OPEN
+  PENDING
+  ACCEPTED
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchStatus {
+  NEW
+  VIEWED
+  EXPIRED
+  ACCEPTED
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum ReturnPreference {
+  ANY_OFFER
+  SPECIFIC_DESTINATION
+  SPECIFIC_DAYS_OFF
+}
+
+enum SwapType {
+  FULL_APARTMENT
+  INDIVIDUAL
+}
+
+enum GenderPreference {
+  MALE
+  FEMALE
+  ANY
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  role          Role           @default(CREW)
+  status        UserStatus     @default(ACTIVE)
+  profile       Profile?
+  flights       Flight[]
+  rosterItems   RosterItem[]
+  qualifications UserQualification[]
+  flightSwaps   FlightSwap[]
+  leaveSwaps    LeaveSwap[]
+  accommodationSwaps AccommodationSwap[]
+  sentRequests  SwapRequest[]  @relation("SentRequests")
+  receivedRequests SwapRequest[] @relation("ReceivedRequests")
+  auditLogs     AuditLog[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  firstName String
+  lastName  String
+  photoUrl  String?
+  rank      Rank?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserQualification {
+  id        String   @id @default(cuid())
+  userId    String
+  fleet     Fleet
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, fleet])
+}
+
+model Flight {
+  id            String   @id @default(cuid())
+  ownerId       String
+  flightNumber  String
+  date          DateTime
+  origin        String
+  destination   String
+  departureTime DateTime
+  arrivalTime   DateTime
+  fleet         Fleet
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  flightSwaps   FlightSwap[]
+  rosterItems   RosterItem[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model FlightSwap {
+  id                   String           @id @default(cuid())
+  ownerId              String
+  flightId             String
+  flightDate           DateTime
+  origin               String
+  destination          String
+  departureTime        DateTime
+  arrivalTime          DateTime
+  flightNumber         String
+  fleetType            Fleet
+  crewRank             Rank
+  tripDuration         Int
+  returnPreference     ReturnPreference @default(ANY_OFFER)
+  specificDestinations String[]         @default([])
+  specificDaysOff      DateTime[]       @default([])
+  note                 String?
+  status               SwapStatus       @default(DRAFT)
+  owner                User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  flight               Flight           @relation(fields: [flightId], references: [id])
+  matchesAsA           Match[]          @relation("FlightSwapA")
+  matchesAsB           Match[]          @relation("FlightSwapB")
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model LeaveSwap {
+  id           String     @id @default(cuid())
+  ownerId      String
+  currentStart DateTime
+  currentEnd   DateTime
+  desiredStart DateTime
+  desiredEnd   DateTime
+  note         String?
+  status       SwapStatus @default(DRAFT)
+  owner        User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  matchesAsA   Match[]    @relation("LeaveSwapA")
+  matchesAsB   Match[]    @relation("LeaveSwapB")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Accommodation {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  location  String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  currentIn AccommodationSwap[] @relation("CurrentAccommodation")
+  desiredIn AccommodationSwap[] @relation("DesiredAccommodation")
+}
+
+model AccommodationSwap {
+  id                     String           @id @default(cuid())
+  ownerId                String
+  currentAccommodationId String
+  desiredAccommodationId String
+  swapType               SwapType
+  gender                 GenderPreference @default(ANY)
+  note                   String?
+  status                 SwapStatus       @default(DRAFT)
+  owner                  User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  currentAccommodation   Accommodation    @relation("CurrentAccommodation", fields: [currentAccommodationId], references: [id])
+  desiredAccommodation   Accommodation    @relation("DesiredAccommodation", fields: [desiredAccommodationId], references: [id])
+  matchesAsA             Match[]          @relation("AccommodationSwapA")
+  matchesAsB             Match[]          @relation("AccommodationSwapB")
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+}
+
+model Match {
+  id                   String       @id @default(cuid())
+  type                 String
+  flightSwapAId         String?
+  flightSwapBId         String?
+  leaveSwapAId          String?
+  leaveSwapBId          String?
+  accommodationSwapAId  String?
+  accommodationSwapBId  String?
+  score                Int
+  reasons              String[]     @default([])
+  status               MatchStatus  @default(NEW)
+  flightSwapA          FlightSwap?  @relation("FlightSwapA", fields: [flightSwapAId], references: [id])
+  flightSwapB          FlightSwap?  @relation("FlightSwapB", fields: [flightSwapBId], references: [id])
+  leaveSwapA           LeaveSwap?   @relation("LeaveSwapA", fields: [leaveSwapAId], references: [id])
+  leaveSwapB           LeaveSwap?   @relation("LeaveSwapB", fields: [leaveSwapBId], references: [id])
+  accommodationSwapA   AccommodationSwap? @relation("AccommodationSwapA", fields: [accommodationSwapAId], references: [id])
+  accommodationSwapB   AccommodationSwap? @relation("AccommodationSwapB", fields: [accommodationSwapBId], references: [id])
+  requests             SwapRequest[]
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@unique([type, flightSwapAId, flightSwapBId])
+  @@unique([type, leaveSwapAId, leaveSwapBId])
+  @@unique([type, accommodationSwapAId, accommodationSwapBId])
+}
+
+model SwapRequest {
+  id         String        @id @default(cuid())
+  matchId    String
+  senderId   String
+  receiverId String
+  status     RequestStatus @default(PENDING)
+  match      Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender     User          @relation("SentRequests", fields: [senderId], references: [id])
+  receiver   User          @relation("ReceivedRequests", fields: [receiverId], references: [id])
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([matchId, senderId, receiverId])
+}
+
+model RosterItem {
+  id        String   @id @default(cuid())
+  ownerId   String
+  flightId  String?
+  dutyType  String
+  startsAt  DateTime
+  endsAt    DateTime
+  note      String?
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  flight    Flight?  @relation(fields: [flightId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  actor     User?    @relation(fields: [actorId], references: [id])
+  createdAt DateTime @default(now())
+}
